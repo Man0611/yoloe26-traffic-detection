@@ -1,1 +1,52 @@
-YOLOE-26 & YOLO26: Thực nghiệm Phân vùng Linh kiện Ô tô trên Dataset Carparts-SegGiới thiệuProject này thực hiện triển khai, đánh giá và so sánh hiệu năng giữa mô hình từ vựng mở YOLOE-26 (Open-Vocabulary) và giải pháp huấn luyện chuyên biệt YOLO26-seg (Fine-tuning) cho bài toán phân vùng thực thể (Instance Segmentation) các linh kiện ngoại thất ô tô.Nghiên cứu tập trung giải quyết bài toán ngách công nghiệp (nhận diện chính xác cản trước, cản sau, nắp ca-pô, kính, đèn...) phục vụ cho các hệ thống tự động hóa như robot sửa chữa, dây chuyền kiểm định chất lượng và giám sát đánh giá thiệt hại xe.Cấu trúc RepositoryĐường dẫnNội dungyolo26_carparts_segmentation.ipynbNotebook toàn bộ thí nghiệm (chạy trên Google Colab, GPU Tesla T4)runs/segment/carparts_exp/yolo26n_seg/Thư mục lưu kết quả huấn luyện, trọng số best.pt, file export best.onnx, đồ thị Loss và Confusion MatrixDữ liệu và Khám phá Dữ liệu (EDA)Bộ dữ liệu: Carparts-Seg (Phân vùng linh kiện ô tô) được cấu hình và tải tự động qua file carparts-seg.yaml.Thách thức đặc thù (Data Imbalance & Augmentation):Bước EDA chỉ ra sự mất cân bằng dữ liệu nghiêm trọng: lớp đèn trước (front_light) áp đảo với >2500 mẫu, trong khi các lớp như cốp xe (trunk), cửa khoang hành lý (tailgate) chỉ có khoảng 150–200 mẫu.Ảnh thực tế trong tập dữ liệu đã được áp dụng kỹ thuật tăng cường xoay nghiêng góc (Rotation), đặt ra yêu cầu mô hình phải phân vùng khít theo đường biên thực tế bất kể góc chụp.Các Giai đoạn Thực nghiệm & Kết quả Chính1. Thử nghiệm Zero-shot với YOLOE-26 (Baseline)Cách làm: Sử dụng mô hình yoloe-26s-seg.pt với cơ chế gợi ý văn bản (Text Prompt) bằng ngôn ngữ tự nhiên ("back bumper", "front light", "hood").Kết quả: Mô hình đạt tốc độ xử lý rất nhanh (25.2ms/ảnh) nhưng trả về trống trơn (no detections).Kết luận: Minh họa rõ hạn chế của các mô hình open-vocabulary tổng quát khi đối mặt với các khái niệm kỹ thuật phân mảnh sâu và ảnh bị xoay cấu trúc khi chưa qua huấn luyện.2. Huấn luyện chuyên biệt (Fine-tune) với YOLO26-segCách làm: Tinh chỉnh mô hình yolo26n_seg trực tiếp trên tập dữ liệu Carparts-Seg trong 5 epochs.Kết quả đồ thị Loss & Metrics: Các đường loss (box_loss, seg_loss, cls_loss) trên cả tập train và val đều hội tụ dốc xuống mượt mà, không xảy ra overfitting. Chỉ số mAP50 tăng trưởng mạnh mẽ tiệm cận mốc 0.35 và còn đà phát triển tiếp nếu tăng số epoch.Kết quả Confusion Matrix: Mô hình đạt độ tự tin cực cao ở các lớp nhiều dữ liệu (nhận diện đúng 192 mẫu front_light, 191 mẫu front_glass). Tuy nhiên, do giới hạn 5 epochs, mô hình vẫn còn bị sót một số linh kiện ít mẫu vào vùng nền (background).Kết quả Suy luận (Inference): Khác biệt hoàn toàn với Zero-shot, mô hình Fine-tuned đã bóc tách và phủ màu (mask) chính xác từng linh kiện trên ảnh nghiêng: cản trước (front_bumper) đạt độ tự tin 95%, cản sau (back_bumper) đạt 90% với tốc độ siêu nhanh 19.1ms/ảnh.Cách Chạy Lại Dự ÁnTruy cập vào đường dẫn file Notebook trong repository này: [https://github.com/Man0611/yoloe26-traffic-detection/blob/main/yolo26_carparts_segmentation.ipynb](https://github.com/Man0611/yoloe26-traffic-detection/blob/main/yolo26_carparts_segmentation.ipynb)Bấm vào nút Open in Colab ở đầu trang.Thay đổi môi trường chạy (Runtime) sang GPU T4.Tiến hành chạy lần lượt các cell từ thiết lập môi trường, EDA cho đến bước huấn luyện và suy luận.Tài liệu Tham khảoR. Sapkota, M. Karkee, "YOLOE-26: Integrating YOLO26 with YOLOE for Real-Time Open-Vocabulary Instance Segmentation," arXiv:2602.00168, 2026.Ultralytics YOLO26 & YOLOE Documentation: https://docs.ultralytics.com
+# YOLOE-26 & YOLO26: Thực nghiệm Phân vùng Linh kiện Ô tô trên Dataset Carparts-Seg
+
+## 1. Giới thiệu
+Project này thực hiện triển khai, đánh giá và so sánh hiệu năng giữa mô hình từ vựng mở **YOLOE-26** (Open-Vocabulary) và giải pháp huấn luyện chuyên biệt **YOLO26-seg** (Fine-tuning) cho bài toán phân vùng thực thể (*Instance Segmentation*) các linh kiện ngoại thất ô tô. 
+
+Nghiên cứu tập trung giải quyết bài toán ngách công nghiệp (nhận diện chính xác cản trước, cản sau, nắp ca-pô, kính, đèn...) phục vụ cho các hệ thống tự động hóa như robot sửa chữa, dây chuyền kiểm định chất lượng và giám sát đánh giá thiệt hại xe.
+
+---
+
+## 2. Cấu trúc Repository
+
+| Đường dẫn | Nội dung |
+| :--- | :--- |
+| `yolo26_carparts_segmentation.ipynb` | Notebook toàn bộ thí nghiệm (chạy trên Google Colab, GPU Tesla T4) |
+| `runs/segment/carparts_exp/yolo26n_seg/` | Thư mục lưu kết quả huấn luyện, trọng số `best.pt`, file export `best.onnx`, đồ thị Loss và Confusion Matrix |
+
+---
+
+## 3. Dữ liệu và Khám phá Dữ liệu (EDA)
+* **Bộ dữ liệu:** `Carparts-Seg` (Phân vùng linh kiện ô tô) được cấu hình và tải tự động qua file `carparts-seg.yaml`.
+* **Thách thức đặc thù (Data Imbalance & Augmentation):**
+    * **Bước EDA** chỉ ra sự mất cân bằng dữ liệu nghiêm trọng: lớp đèn trước (`front_light`) áp đảo với `>2500` mẫu, trong khi các lớp như cốp xe (`trunk`), cửa khoang hành lý (`tailgate`) chỉ có khoảng `150–200` mẫu.
+    * **Ảnh thực tế** trong tập dữ liệu đã được áp dụng kỹ thuật tăng cường xoay nghiêng góc (*Rotation*), đặt ra yêu cầu mô hình phải phân vùng khít theo đường biên thực tế bất kể góc chụp.
+
+---
+
+## 4. Các Giai đoạn Thực nghiệm & Kết quả Chính
+
+### 4.1. Thử nghiệm Zero-shot với YOLOE-26 (Baseline)
+* **Cách làm:** Sử dụng mô hình `yoloe-26s-seg.pt` với cơ chế gợi ý văn bản (*Text Prompt*) bằng ngôn ngữ tự nhiên (`"back bumper"`, `"front light"`, `"hood"`).
+* **Kết quả:** Mô hình đạt tốc độ xử lý rất nhanh (`25.2ms`/ảnh) nhưng trả về **trống trơn (no detections)**.
+* **Kết luận:** Minh họa rõ hạn chế của các mô hình open-vocabulary tổng quát khi đối mặt với các khái niệm kỹ thuật phân mảnh sâu và ảnh bị xoay cấu trúc khi chưa qua huấn luyện.
+
+### 4.2. Huấn luyện chuyên biệt (Fine-tune) với YOLO26-seg
+* **Cách làm:** Tinh chỉnh mô hình `yolo26n_seg` trực tiếp trên tập dữ liệu `Carparts-Seg` trong `5 epochs`.
+* **Kết quả đồ thị Loss & Metrics:** Các đường loss (`box_loss`, `seg_loss`, `cls_loss`) trên cả tập train và val đều hội tụ dốc xuống mượt mà, không xảy ra overfitting. Chỉ số `mAP50` tăng trưởng mạnh mẽ tiệm cận mốc `0.35` và còn đà phát triển tiếp nếu tăng số epoch.
+* **Kết quả Confusion Matrix:** Mô hình đạt độ tự tin cực cao ở các lớp nhiều dữ liệu (nhận diện đúng `192` mẫu `front_light`, `191` mẫu `front_glass`). Tuy nhiên, do giới hạn 5 epochs, mô hình vẫn còn bị sót một số linh kiện ít mẫu vào vùng nền (*background*).
+* **Kết quả Suy luận (Inference):** Khác biệt hoàn toàn với Zero-shot, mô hình Fine-tuned đã bóc tách và phủ màu (*mask*) chính xác từng linh kiện trên ảnh nghiêng: cản trước (`front_bumper`) đạt độ tự tin **95%**, cản sau (`back_bumper`) đạt **90%** với tốc độ siêu nhanh **19.1ms/ảnh**.
+
+---
+
+## 5. Cách Chạy Lại Dự Án
+1. **Truy cập** vào đường dẫn file Notebook trong repository này: https://github.com/Man0611/yoloe26-traffic-detection/blob/main/yolo26_carparts_segmentation.ipynb
+2. **Bấm** vào nút **Open in Colab** ở đầu trang.
+3. **Thay đổi môi trường chạy** (*Runtime*) sang **GPU T4**.
+4. **Tiến hành chạy lần lượt** các cell từ thiết lập môi trường, EDA cho đến bước huấn luyện và suy luận.
+
+---
+
+## 6. Tài liệu Tham khảo
+* R. Sapkota, M. Karkee, *"YOLOE-26: Integrating YOLO26 with YOLOE for Real-Time Open-Vocabulary Instance Segmentation,"* arXiv:2602.00168, 2026.
+* Ultralytics YOLO26 & YOLOE Documentation: https://docs.ultralytics.com
